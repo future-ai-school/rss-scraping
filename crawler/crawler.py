@@ -19,14 +19,18 @@ Optional LLM filtering (disabled unless enabled via env):
   - OPENAI_API_KEY=...
 
 Usage example:
-  python crawler.py --start-url https://example.com --max-depth 2 --timeout 30 --max-downloads 100
-  python crawler.py --start-url https://example.com --max-depth 1 --no-timeout
+  python -m crawler.crawler --start-url https://example.com --max-depth 2 --max-downloads 100
 
 Notes:
   - Only HTTP/HTTPS links are considered.
   - HTML and PDF are downloaded; only HTML is parsed for link discovery.
   - Table creation is not handled here; run schema.sql separately.
 """
+
+# ===== Default values (can be overridden via environment variables) =====
+DEFAULT_REQUEST_TIMEOUT = 20
+DEFAULT_USER_AGENT = "SimpleCrawler/1.0 (+https://example.local)"
+# =======================================================================
 
 from __future__ import annotations
 
@@ -49,10 +53,11 @@ from dotenv import load_dotenv
 import io
 import re
 
+from crawler.filter_loader import load_filter
+
 try:
-    # Optional PDF text extraction
     from pdfminer.high_level import extract_text as pdf_extract_text
-except Exception:  # pragma: no cover
+except Exception:
     pdf_extract_text = None
 
 
@@ -61,7 +66,6 @@ class QueueItem:
     url: str
     depth: int
     anchor_text: Optional[str]
-    # referrer_url removed per requirements
 
 
 def get_db_connection() -> PGConnection:
@@ -166,84 +170,15 @@ def html_to_text(html: str) -> str:
         return html
 
 
-MINUTES_KEYWORDS = (
-    # Japanese
-    "議事録", "会議録", "会議", "議題", "議事次第", "出席者", "配布資料", "決定事項", "アジェンダ",
-    # English
-    "meeting minutes", "minutes", "agenda", "attendees", "action items", "decisions",
-)
-
-
-def rule_based_is_minutes_like(text: str, url: str) -> bool:
-    t = (text or "")[:200000].lower()
-    # simple heuristics: require at least one keyword and some structure-like cues
-    if not any(k in t for k in [kw.lower() for kw in MINUTES_KEYWORDS]):
-        return False
-    # extra signals: dates, numbering, time
-    signals = 0
-    if re.search(r"\d{4}[/-]\d{1,2}[/-]\d{1,2}", t):
-        signals += 1
-    if re.search(r"\b(\d{1,2}:\d{2})\b", t):
-        signals += 1
-    if re.search(r"\b(agenda|議題)\b", t):
-        signals += 1
-    return signals >= 1
-
-
-def extract_text_from_pdf_bytes(data: bytes) -> Optional[str]:
-    if not data:
-        return None
-    if pdf_extract_text is None:
-        return None
-    try:
-        with io.BytesIO(data) as f:
-            return pdf_extract_text(f) or None
-    except Exception:
-        return None
-
-
-def llm_is_minutes_like(text: str, url: str) -> Optional[bool]:  # Optional LLM check
-    if os.getenv("ENABLE_LLM_FILTER", "0") != "1":
-        return None
-    # Placeholder for LLM integration; implement with your preferred provider.
-    # For example, using OpenAI if OPENAI_API_KEY is set.
-    # To keep this script provider-agnostic and offline-friendly, return None here.
-    return None
-
-
-def should_save(content_type: Optional[str], url: str, *, html_text: Optional[str], pdf_bytes: Optional[bytes]) -> bool:
-    text: Optional[str] = None
-    if content_type:
-        ct = content_type.lower()
-    else:
-        ct = ""
-    if ct.startswith("text/html") and html_text:
-        text = html_to_text(html_text)
-    elif ct in ("application/pdf", "application/x-pdf", "application/acrobat") and pdf_bytes:
-        text = extract_text_from_pdf_bytes(pdf_bytes)
-
-    # If no text available (e.g., PDF extractor not installed), fall back to URL-based heuristic
-    if not text:
-        text = url.lower()
-
-    if rule_based_is_minutes_like(text, url):
-        return True
-
-    llm = llm_is_minutes_like(text, url)
-    if llm is not None:
-        return bool(llm)
-
-    return False
-
-
 def crawl(
     start_url: str,
     max_depth: int,
-    *,
-    request_timeout: Optional[int] = 20,
-    user_agent: str = "SimpleCrawler/1.0 (+https://example.local)",
+    request_timeout: Optional[int] = None,
+    user_agent: str = DEFAULT_USER_AGENT,
+    save_filter=None,
     max_downloads: Optional[int] = None,
 ) -> None:
+    filter_ = save_filter or load_filter()
     start_url = normalize_url(start_url)
 
     try:
@@ -271,11 +206,27 @@ def crawl(
             # Already downloaded previously; skip downloading to avoid duplication.
             continue
 
+        # Anchor-text based pre-filter: decide whether to download
+        # Apply only to non-root items (depth > 0). Root is fetched to discover links.
+        if item.depth > 0:
+            try:
+                should_fetch = filter_.should_save(
+                    url=url,
+                    content_type=None,
+                    text=(item.anchor_text or ""),
+                    raw=None,
+                )
+            except Exception:
+                should_fetch = False
+            if not should_fetch:
+                continue
+
         status_code: Optional[int] = None
         content_type: Optional[str] = None
         html_title: Optional[str] = None
         body_bytes: Optional[bytes] = None
         links: Tuple[Tuple[str, str], ...] = tuple()
+        html_text: Optional[str] = None
 
         try:
             resp = session.get(url, timeout=None if (request_timeout is None) else request_timeout, allow_redirects=True)
@@ -311,14 +262,8 @@ def crawl(
             links = tuple()
             print(f"[HTTP] Failed {url}: {e}", file=sys.stderr)
 
-        # Decide whether to save (HTML/PDF minutes-like only)
-        keep = False
-        try:
-            keep = should_save(content_type, url, html_text=resp.text if (content_type and content_type.lower().startswith("text/html")) else None, pdf_bytes=body_bytes if (content_type and content_type.lower() in ("application/pdf", "application/x-pdf", "application/acrobat")) else None)
-        except Exception:
-            keep = False
-
-        if keep:
+        # Save page if it passed anchor pre-filter (depth > 0). Root (depth=0) is not saved.
+        if item.depth > 0:
             try:
                 inserted = save_page(
                     conn,
@@ -353,26 +298,23 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Simple BFS web crawler with Postgres storage")
     p.add_argument("--start-url", required=True, help="Starting URL to crawl from")
     p.add_argument("--max-depth", type=int, default=1, help="Max depth to follow links (0 = only start URL)")
-    p.add_argument("--timeout", type=int, default=20, help="Per-request timeout in seconds (ignored if --no-timeout)")
-    p.add_argument("--no-timeout", action="store_true", help="Disable request timeout (infinite)")
-    p.add_argument(
-        "--user-agent",
-        default=os.getenv("CRAWLER_USER_AGENT", "SimpleCrawler/1.0 (+https://example.local)"),
-        help="User-Agent header (or set CRAWLER_USER_AGENT)"
-    )
     p.add_argument("--max-downloads", type=int, default=None, help="Max number of pages to SAVE; stop when reached")
     return p.parse_args(argv)
 
 
 def main() -> None:
-    # Load .env first
     load_dotenv()
     args = parse_args()
+
+    # 環境変数から設定（無ければデフォルトを使用）
+    timeout = int(os.getenv("CRAWLER_TIMEOUT", str(DEFAULT_REQUEST_TIMEOUT)))
+    user_agent = os.getenv("CRAWLER_USER_AGENT", DEFAULT_USER_AGENT)
+
     crawl(
         start_url=args.start_url,
         max_depth=args.max_depth,
-        request_timeout=None if args.no_timeout else args.timeout,
-        user_agent=args.user_agent,
+        request_timeout=timeout,
+        user_agent=user_agent,
         max_downloads=args.max_downloads,
     )
 
