@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: rssscraping_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Mount schema for easy manual apply (won't auto-run)
+      - ./schema.sql:/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  crawler:
+    build: .
+    container_name: rssscraping_crawler
+    depends_on:
+      db:
+        condition: service_healthy
+    # Use env_file for convenience; CRAWLER_USER_AGENT etc. can be set here
+    env_file:
+      - .env
+    environment:
+      # Prefer DATABASE_URL if present in .env; otherwise fall back to PG* vars
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+    volumes:
+      - ./:/app
+    # Default command; can be overridden with `docker compose run crawler ...`
+    command: ["--start-url", "https://example.com", "--max-depth", "1", "--no-timeout", "--max-downloads", "50"]
+
+volumes:
+  pgdata:
+
