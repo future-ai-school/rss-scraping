@@ -1,4 +1,5 @@
 import re
+import os
 from typing import Iterable
 from urllib.parse import urlparse
 
@@ -46,10 +47,6 @@ class MinutesSpider(scrapy.Spider):
             raise CloseSpider("start_url is required")
         self.start_url = start_url
         try:
-            self.max_depth = int(max_depth)
-        except Exception:
-            self.max_depth = 2
-        try:
             self.max_downloads = int(max_downloads)
         except Exception:
             self.max_downloads = 100
@@ -64,12 +61,11 @@ class MinutesSpider(scrapy.Spider):
         yield Request(
             url=self.start_url,
             callback=self.parse,
-            meta={"depth": 0, "referrer_anchor_text": None, "matched": False},
+            meta={"referrer_anchor_text": None, "matched": False},
             dont_filter=True,
         )
 
     def parse(self, response: Response, **kwargs):
-        current_depth = int(response.meta.get("depth", 0))
         matched = bool(response.meta.get("matched", False))
         ref_anchor = response.meta.get("referrer_anchor_text")
 
@@ -91,16 +87,11 @@ class MinutesSpider(scrapy.Spider):
             else:
                 item["html_title"] = None
 
-            item["depth"] = current_depth
             self.downloaded_count += 1
             yield item
 
             if self.downloaded_count >= self.max_downloads:
                 raise CloseSpider("max_downloads_reached")
-
-        # --- リンク探索（http/https だけ） ---
-        if current_depth >= self.max_depth:
-            return
 
         for a in response.css("a[href]"):
             href = a.xpath("@href").get()
@@ -119,7 +110,6 @@ class MinutesSpider(scrapy.Spider):
                 href,
                 callback=self.parse,
                 meta={
-                    "depth": current_depth + 1,
                     "referrer_anchor_text": text,
                     "matched": will_match,
                 },

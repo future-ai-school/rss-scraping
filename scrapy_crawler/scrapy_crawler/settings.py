@@ -35,7 +35,6 @@ ADDONS = {}
 
 # User agent and depth from env with defaults
 USER_AGENT = os.getenv("USER_AGENT", os.getenv("CRAWLER_USER_AGENT", "ScrapyCrawler/1.0"))
-DEPTH_LIMIT = int(os.getenv("DEPTH_LIMIT", "2"))
 DOWNLOAD_TIMEOUT = int(os.getenv("TIMEOUT", os.getenv("CRAWLER_TIMEOUT", "20")))
 
 # BFS scheduling
