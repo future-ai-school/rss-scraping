@@ -1,0 +1,15 @@
+# Database: either provide DATABASE_URL or the PG* variables
+# DATABASE_URL=postgresql://user:pass@localhost:5432/mydb
+PGHOST=XXXXX
+PGPORT=5432
+PGUSER=XXXX
+PGPASSWORD=XXXX
+PGDATABASE=XXXX
+
+# Optional LLM filter (disabled unless explicitly set)
+ENABLE_LLM_FILTER=0
+# OPENAI_API_KEY=sk-...
+
+# Optional:
+CRAWLER_TIMEOUT=30
+CRAWLER_USER_AGENT=SimpleCrawler/1.0

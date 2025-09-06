@@ -1,0 +1,33 @@
+# Python キャッシュ類
+__pycache__/
+*.py[cod]
+*.pyo
+
+# venv / poetry / pipenv など
+.venv/
+env/
+venv/
+.venv*/
+env*/
+venv*/
+
+# Scrapy 関連
+.scrapy/
+
+# ログ / 出力ファイル
+*.log
+*.out
+*.tmp
+
+# IDE 設定ファイル
+.vscode/
+.idea/
+
+# OS 系
+.DS_Store
+Thumbs.db
+
+# 環境変数ファイル
+.env
+.env.*
+!.env.example
