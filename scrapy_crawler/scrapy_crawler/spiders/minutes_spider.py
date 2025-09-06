@@ -1,5 +1,6 @@
 import re
 from typing import Iterable
+from urllib.parse import urlparse
 
 import scrapy
 from scrapy import Request
@@ -20,39 +21,21 @@ def _anchor_text(sel: scrapy.Selector) -> str:
     return _collapse_ws(" ".join([t.strip() for t in sel.xpath('.//text()').getall() if t.strip()]))
 
 
-def _context_text_for(sel: scrapy.Selector) -> str:
-    # nearest LI/P/DIV ancestor text for context judgement
-    context = sel.xpath("ancestor::*[self::li or self::p or self::div][1]//text()").getall()
-    if not context:
-        # Fallback to parent text
-        context = sel.xpath("parent::*//text()").getall()
-    return _collapse_ws(" ".join([t.strip() for t in context if t.strip()]))
-
-
 def is_minutes_exact(text: str) -> bool:
     return _collapse_ws(text) == _MINUTES_LABEL
-
-
-def is_text_link_under_minutes(sel: scrapy.Selector) -> bool:
-    text = _anchor_text(sel)
-    if text.upper() != "TEXT":
-        return False
-    ctx = _context_text_for(sel)
-    # Must look like 議事録(...) and must not be 会議録
-    if "会議録" in ctx:
-        return False
-    return bool(re.search(r"議事録\s*[（(].*[）)]", ctx))
 
 
 class MinutesSpider(scrapy.Spider):
     name = "minutes"
     custom_settings = {
-        # Ensure BFS at spider-level too
+        # BFS 寄せ
         "DEPTH_PRIORITY": 1,
         "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
         "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
-        # Capture all statuses for persistence
+        # 404なども拾って保存したい場合
         "HTTPERROR_ALLOW_ALL": True,
+        # robots.txt を守りたくない場合は False に（必要なら）
+        # "ROBOTSTXT_OBEY": False,
     }
 
     handle_httpstatus_all = True
@@ -71,6 +54,10 @@ class MinutesSpider(scrapy.Spider):
         except Exception:
             self.max_downloads = 100
 
+        # 外部サイトに暴走しないように allowed_domains を自動設定（任意）
+        netloc = urlparse(self.start_url).netloc
+        self.allowed_domains = [netloc]
+
         self.downloaded_count = 0
 
     def start_requests(self) -> Iterable[Request]:
@@ -82,11 +69,11 @@ class MinutesSpider(scrapy.Spider):
         )
 
     def parse(self, response: Response, **kwargs):
-        # If this response corresponds to a matched anchor, persist it
         current_depth = int(response.meta.get("depth", 0))
         matched = bool(response.meta.get("matched", False))
         ref_anchor = response.meta.get("referrer_anchor_text")
 
+        # --- 保存処理（matched=True のとき） ---
         if matched:
             item = CrawledPageItem()
             item["url"] = response.url
@@ -96,57 +83,44 @@ class MinutesSpider(scrapy.Spider):
             ctype_str = ctype.decode("latin-1").split(";")[0].strip().lower()
             item["content_type"] = ctype_str
             item["content"] = bytes(response.body or b"")
+
+            # HTML タイトルはあれば保存
             if ctype_str == "text/html":
                 title = response.css("title::text").get()
                 item["html_title"] = title.strip() if title else None
-            elif ctype_str in ("application/pdf", "application/x-pdf"):
-                item["html_title"] = None
             else:
                 item["html_title"] = None
-            item["depth"] = current_depth
 
+            item["depth"] = current_depth
             self.downloaded_count += 1
             yield item
 
             if self.downloaded_count >= self.max_downloads:
                 raise CloseSpider("max_downloads_reached")
 
-        # Stop expanding if depth limit reached according to requested semantics:
-        # start_url depth=0, to reach one level below use max_depth=2
-        # Allow scheduling children only if current_depth + 1 < max_depth
-        if (current_depth + 1) >= self.max_depth:
+        # --- リンク探索（http/https だけ） ---
+        if current_depth >= self.max_depth:
             return
 
-        # Discover and queue matching links (BFS ensured by settings)
-        for a in response.css("a"):
+        for a in response.css("a[href]"):
             href = a.xpath("@href").get()
             if not href:
                 continue
+
+            parsed = urlparse(href)
+            # http/https 以外は除外
+            if parsed.scheme and parsed.scheme not in ("http", "https"):
+                continue
+
             text = _anchor_text(a)
+            will_match = is_minutes_exact(text)  # 「議事録」完全一致のみ保存対象化
 
-            # Case 1: exact 議事録
-            if is_minutes_exact(text):
-                yield response.follow(
-                    href,
-                    callback=self.parse,
-                    meta={
-                        "depth": current_depth + 1,
-                        "referrer_anchor_text": text,
-                        "matched": True,
-                    },
-                )
-                continue
-
-            # Case 2: TEXT link under 議事録(TEXT, PDF) context
-            if is_text_link_under_minutes(a):
-                yield response.follow(
-                    href,
-                    callback=self.parse,
-                    meta={
-                        "depth": current_depth + 1,
-                        "referrer_anchor_text": text,
-                        "matched": True,
-                    },
-                )
-                continue
-
+            yield response.follow(
+                href,
+                callback=self.parse,
+                meta={
+                    "depth": current_depth + 1,
+                    "referrer_anchor_text": text,
+                    "matched": will_match,
+                },
+            )
