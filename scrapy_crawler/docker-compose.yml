@@ -6,9 +6,11 @@ services:
     container_name: scrapy_crawler
     working_dir: /app
     env_file:
-      - .env
-    # ENTRYPOINT is `scrapy`; override this command to pass subcommands/args.
-    # Example override: `docker compose run crawler crawl minutes -a start_url=...`
+      - ../.env
+    volumes:
+      - ./:/app
+    # 既定ではヘルプを表示。実行時に上書きして利用してください。
+    # 例: `docker compose run --rm crawler crawl minutes -a start_url=...`
     command: ["--help"]
     tty: true
     stdin_open: true

@@ -1,9 +1,9 @@
 # scrapy_crawler
 
-Scrapy を用いたシンプルな BFS クローラです。リンクのアンカーテキストが特定のキーワード（例: 「議事録」「会議録」）にマッチするページだけをたどり、取得したレスポンスを Postgres に保存します。
+Scrapy を用いたシンプルな BFS クローラです。リンクのアンカーテキストが特定のキーワード（例: 「議事録」「会議録」）にマッチするページのみをたどり、取得したレスポンスを Postgres に保存します。
 
 主な構成:
-- Spider: `minutes` （BFS、`-a start_url=... -a max_depth=... -a max_downloads=...`）
+- Spider: `minutes`（BFS、`-a start_url=... -a max_depth=... -a max_downloads=...`）
 - Pipeline: Postgres へ保存（`crawled_pages` テーブル、URL 重複は `ON CONFLICT(url) DO NOTHING`）
 - 設定: `.env` から USER_AGENT / DEPTH_LIMIT / TIMEOUT、DB 接続を読み込み
 
@@ -26,11 +26,11 @@ CRAWLER_TIMEOUT=30
 DEPTH_LIMIT=2
 ```
 
-プロジェクトルート（この `scrapy_crawler/` ディレクトリ）に `.env` を置くと、`docker-compose.yml` の `env_file` から読み込まれます。また、アプリ側も `python-dotenv` 経由で `.env` をロードします。
+Compose を使う場合は、このディレクトリの一つ上（リポジトリルート）に `.env` を置き、`docker-compose.yml` の `env_file: ../.env` から読み込みます。アプリ側でも `python-dotenv` 経由で `.env` をロードします。
 
 ## DB スキーマ（例）
 
-`crawled_pages.sql` にも定義があります。初回に DB で実行してください。
+このディレクトリの `crawled_pages.sql` に定義があります。初回に DB で実行してください。
 
 ```
 CREATE TABLE IF NOT EXISTS crawled_pages (
@@ -73,7 +73,7 @@ docker build -t scrapy_crawler:latest .
 
 ```
 docker run --rm \
-  --env-file ./.env \
+  --env-file ../.env \
   -w /app \
   scrapy_crawler:latest \
   crawl minutes -a start_url=https://example.com -a max_depth=2 -a max_downloads=100
@@ -88,7 +88,7 @@ docker compose run --rm crawler crawl minutes \
   -a start_url=https://example.com -a max_depth=2 -a max_downloads=100
 ```
 
-TTY/STDIN を有効化しているので、対話型のオプション投入やログの見やすさに配慮しています。
+TTY/STDIN を有効化しているため、対話型のオプション投入やログの見やすさに配慮しています。
 
 ## 備考
 
@@ -99,4 +99,3 @@ TTY/STDIN を有効化しているので、対話型のオプション投入や�
   ```
   scrapy crawl minutes -a start_url=https://example.com -a max_depth=2 -a max_downloads=100
   ```
-
