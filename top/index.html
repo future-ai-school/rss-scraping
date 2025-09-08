@@ -16,4 +16,33 @@
   <a href="page1/fake2.html">スクワットの注意点（ニセページ）</a>
   <a href="page1/fake3.html">デッドリフト入門（ニセページ）</a>
 </div>
-</main><footer>© Dummy Training Site</footer></body></html>
+
+<section>
+  <h2>フィルタ設定の動作確認リンク</h2>
+  <p><strong>allow_url_regex: ["/meeting_crawler/top/"]</strong> に一致する（想定：<em>許可</em>）リンク</p>
+  <ul>
+    <li><a href="/meeting_crawler/top/page1/fake1.html">許可テスト 1 (/meeting_crawler/top/page1/fake1.html)</a></li>
+    <li><a href="/meeting_crawler/top/page1/minutes1.html">許可テスト 2 (/meeting_crawler/top/page1/minutes1.html)</a></li>
+  </ul>
+
+  <p><strong>deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]</strong> に一致する（想定：<em>拒否</em>）リンク</p>
+  <ul>
+    <li><a href="/search?q=bench">拒否テスト /search</a></li>
+    <li><a href="/calendar/2025/09">拒否テスト /calendar</a></li>
+    <li><a href="/print/top/page1/fake1.html">拒否テスト /print</a></li>
+    <li><a href="/wp-json/wp/v2/posts">拒否テスト /wp-json</a></li>
+    <li><a href="/feed">拒否テスト /feed</a></li>
+  </ul>
+</section>
+
+</main><footer>© Dummy Training Site
+<h2>テスト用: deny_paths のリンク</h2>
+<div class="links">
+  <a href="/meeting_crawler/top/search">検索ページ（deny対象）</a>
+  <a href="/meeting_crawler/top/calendar">カレンダー（deny対象）</a>
+  <a href="/meeting_crawler/top/print">印刷ページ（deny対象）</a>
+  <a href="/meeting_crawler/top/wp-json">WP JSON（deny対象）</a>
+  <a href="/meeting_crawler/top/feed">フィード（deny対象）</a>
+</div>
+
+</footer></body></html>
