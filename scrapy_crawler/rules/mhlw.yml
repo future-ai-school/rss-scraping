@@ -1,0 +1,10 @@
+start_url==https://www.mhlw.go.jp/stf/shingi/indexshingi.html
+depth_limit: 2
+only_internal: true               # 既定 true（start_url のドメイン外は辿らない）
+#drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
+allow_url_regex: ["/stf/"]
+deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
+#restrict_xpaths: ["//main", "//*[@id='main']", "//*[@id='contents']"]
+
+match_anchor_exact: ["議事録"]    # 省略時は ["議事録"] をデフォルト付与
+match_anchor_regex: []            # 柔軟マッチ。ここは残す（必須要件）
