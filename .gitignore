@@ -1,5 +1,6 @@
 # Python キャッシュ類
 __pycache__/
+*.pyc
 *.py[cod]
 *.pyo
 
