@@ -1,124 +1,92 @@
 # scrapy_crawler
 
-Scrapy を用いたシンプルな BFS クローラです。リンクのアンカーテキストが特定のキーワード（例: 「議事録」「会議録」）にマッチするページのみをたどり、取得したレスポンスを Postgres に保存します。
+Scrapy ベースのシンプルな BFS クローラです。リンクのアンカーテキストが特定の語（既定は「議事録」）に一致するページだけをたどり、取得したレスポンスを PostgreSQL に保存します。
 
 主な構成:
-- Spider: `minutes`（BFS、`-a start_url=... -a max_downloads=...` 対応、深さは Scrapy 標準の `DEPTH_LIMIT` で制御）
-- Pipeline: Postgres へ保存（`crawled_pages` テーブル、URL 重複は `ON CONFLICT(url) DO NOTHING`）
-- 設定: `.env` から USER_AGENT / TIMEOUT、DB 接続を読み込み（深さは `.env` ではなく Scrapy 設定）
+- Spider: `minutes`（BFS、アンカーテキスト一致で辿る）
+- Rules: クロール条件は YAML で指定（絶対パスを渡す）
+- Pipeline: `crawled_pages` テーブルへ保存（URL を一意制約で重複回避）
+- 設定: `.env` から UA/タイムアウトと DB 接続を読み込み
 
-## 環境変数と .env 運用
+## 使い方（ローカル）
 
-- `.env` 自体はコミットしません（秘匿情報を含むため）。
-- 代わりに `.env.example` をコミットし、必要な環境変数キーのみを列挙します。値は空、またはコメントで例示するスタイルです。
-- 実運用では `.env.example` をコピーして `.env` を作成し、値を設定してください。
-
-`.env.example` の例:
-
+1) 依存をインストール
 ```
-# どちらか一方の方式を使用
-# DATABASE_URL=postgresql://user:pass@host:5432/dbname
-
-# または PG* で指定
-PGHOST=
-PGPORT=5432
-PGUSER=
-PGPASSWORD=
-PGDATABASE=
-
-# 任意: クローラの設定（UA/タイムアウト）
-CRAWLER_USER_AGENT=SimpleCrawler/1.0
-CRAWLER_TIMEOUT=30
-# 深さは Scrapy の設定で指定（例: -s DEPTH_LIMIT=2）
+pip install -r requirements.txt
 ```
 
-Compose を使う場合は、このディレクトリの一つ上（リポジトリルート）に `.env` を置き、`docker-compose.yml` の `env_file: ../.env` から読み込みます。アプリ側でも `python-dotenv` 経由で `.env` をロードします。
+2) ルール YAML を用意（例: `scrapy_crawler/rules/test.yml`）。この Spider は YAML を必須とし、`-a rules=絶対パス` で受け取ります。
 
-## .env の例（Neon 等の外部 Postgres）
+3) 実行
+```
+scrapy crawl minutes -a rules="C:\\abs\\path\\to\\scrapy_crawler\\rules\\test.yml"
+```
+補足:
+- `depth_limit` は YAML で設定され、Spider 側で `DEPTH_LIMIT` に反映されます（`-s DEPTH_LIMIT=...` は不要）。
+- ドメイン外リンクを辿らない `only_internal` は既定で true。`#fragment` を落とす `drop_fragments` も既定で true。
+
+## ルール YAML の例
 
 ```
-# DATABASE_URL=postgresql://user:pass@host:5432/dbname
-
-PGHOST=your-neon-hostname
-PGPORT=5432
-PGUSER=your-user
-PGPASSWORD=your-password
-PGDATABASE=your-db
-
-# 任意: クローラの設定
-CRAWLER_USER_AGENT=SimpleCrawler/1.0
-CRAWLER_TIMEOUT=30
-# DEPTH_LIMIT は .env ではなく Scrapy の設定で渡します（例: -s DEPTH_LIMIT=2）
+start_url: https://example.com/start
+depth_limit: 2
+only_internal: true
+drop_fragments: true
+allow_url_regex: ["/allowed/path/"]
+deny_paths: ["/search", "/print"]
+# restrict_xpaths: ["//main"]
+match_anchor_exact: ["議事録"]
+match_anchor_regex: []
 ```
 
-## DB スキーマ（例）
+キーの意味:
+- start_url: 開始 URL（必須）
+- depth_limit: クロールの深さ（整数）
+- only_internal: 開始 URL と同一ドメインのみ辿る
+- drop_fragments: `#...` 付きの同一ページ内リンクを無視
+- allow_url_regex / deny_paths / restrict_xpaths: LinkExtractor 用のフィルタ
+- match_anchor_exact / match_anchor_regex: アンカーテキストの一致条件
 
-このディレクトリの `crawled_pages.sql` に定義があります。初回に DB で実行してください。
+## 環境変数（.env）
 
-```
-CREATE TABLE IF NOT EXISTS crawled_pages (
-    id BIGSERIAL PRIMARY KEY,
-    url TEXT NOT NULL,
-    referrer_anchor_text TEXT,
-    status_code INTEGER,
-    content_type TEXT,
-    content BYTEA,
-    html_title TEXT,
-    depth INTEGER,
-    fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+リポジトリ直下の `.env` から読み込みます。以下のいずれかで DB 接続を指定します。
+- `DATABASE_URL=postgresql://user:pass@host:5432/dbname`
+- または `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`
 
-CREATE UNIQUE INDEX IF NOT EXISTS crawled_pages_url_idx ON crawled_pages (url);
-```
+任意設定:
+- `CRAWLER_USER_AGENT` または `USER_AGENT`（UA）
+- `CRAWLER_TIMEOUT` または `TIMEOUT`（秒）
 
-## ローカル実行（Docker を使わない場合）
+## DB スキーマ
 
-1. 依存をインストール
-   ```
-   pip install -r requirements.txt
-   ```
-2. クローラ実行（`scrapy.cfg` はこのディレクトリ直下にあります）
-   ```
-   scrapy crawl minutes -a start_url=https://example.com -a max_downloads=100 -s DEPTH_LIMIT=2
-   ```
+`scrapy_crawler/crawled_pages.sql` を DB に適用してください。
+- 保存カラム: `url, referrer_anchor_text, status_code, content_type, content(bytea), html_title, depth`
+- URL は一意制約で重複保存を防止
 
-## Docker でビルド
+## Docker
 
-このディレクトリ（`scrapy_crawler/`）で実行します。
-
+ビルド（`scrapy_crawler/` で実行）
 ```
 docker build -t scrapy_crawler:latest .
 ```
 
-## Docker で実行（docker run）
-
-`ENTRYPOINT` が `scrapy` なので、サブコマンドをそのまま渡せます。
-
+実行（ENTRYPOINT は `scrapy`）
 ```
 docker run --rm \
   --env-file ../.env \
   -w /app \
   scrapy_crawler:latest \
-  crawl minutes -a start_url=https://example.com -a max_downloads=100 -s DEPTH_LIMIT=2
+  crawl minutes -a rules=/abs/path/to/scrapy_crawler/rules/test.yml
 ```
 
-## Docker Compose で実行
-
-`docker-compose.yml` は `scrapy_crawler/` にあります。`command` は上書き可能で、既定では `--help` を表示します。
-
+Docker Compose（`scrapy_crawler/docker-compose.yml`）
 ```
 docker compose run --rm crawler crawl minutes \
-  -a start_url=https://example.com -a max_downloads=100 -s DEPTH_LIMIT=2
+  -a rules=/abs/path/to/scrapy_crawler/rules/test.yml
 ```
 
-TTY/STDIN を有効化しているため、対話型のオプション投入やログの見やすさに配慮しています。
-
 ## 備考
+- BFS は `DEPTH_PRIORITY=1` と FIFO キューで実現
+- robots.txt は既定で遵守（`ROBOTSTXT_OBEY=True`）
+- すべての HTTP ステータスを受理して保存判定（`HTTPERROR_ALLOW_ALL`）
 
-- BFS は Scrapy の FIFO キュー設定（`DEPTH_PRIORITY=1`, FIFO scheduler）で実現しています。
-- Robots.txt は有効です（`ROBOTSTXT_OBEY=True`）。必要に応じて変更してください。
-- 保存されるフィールド: `url, referrer_anchor_text, status_code, content_type, content(bytea), html_title`
-- 実行例:
-  ```
-  scrapy crawl minutes -a start_url=https://example.com -a max_downloads=100 -s DEPTH_LIMIT=2
-  ```
