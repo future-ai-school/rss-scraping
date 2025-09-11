@@ -8,8 +8,7 @@ import scrapy
 from scrapy import Request
 from scrapy.http import Response
 from scrapy.exceptions import CloseSpider
-from scrapy.linkextractors import LinkExtractor
-
+from scrapy.linkextractors import LinkExtractor, IGNORED_EXTENSIONS
 from scrapy_crawler.items import CrawledPageItem
 
 
@@ -114,29 +113,14 @@ class MinutesSpider(scrapy.Spider):
         download_exact_list = cfg.get("download_anchor_exact") or []
         download_regex_list = cfg.get("download_anchor_regex") or []
 
-        # LinkExtractor 準備
-        def _process_value(url: str):
-            if not url:
-                return None
-            u = url.strip()
-            low = u.lower()
-            if low.startswith(("javascript:", "mailto:", "tel:")):
-                return None
-            if spider._drop_fragments and "#" in u:
-                return None
-            # http/https 以外の絶対スキームは除外（相対URLは OK）
-            if re.match(r"^[a-zA-Z][a-zA-Z0-9+\-.]*:", u):
-                if not low.startswith(("http://", "https://")):
-                    return None
-            return u
-
+        deny_ext = [ext for ext in IGNORED_EXTENSIONS if ext != "pdf"]
         spider._link_extractor = LinkExtractor(
             allow=tuple(allow_patterns) if allow_patterns else (),
             deny=tuple(deny_patterns) if deny_patterns else (),
             restrict_xpaths=tuple(restrict_xpaths) if restrict_xpaths else (),
-            process_value=_process_value,
             canonicalize=True,
             unique=True,
+            deny_extensions=deny_ext,
         )
 
         # 新しいアンカー判定関数（フォロー／ダウンロード）を設定
@@ -218,23 +202,20 @@ class MinutesSpider(scrapy.Spider):
             item["depth"] = response.meta.get("depth", 0)
             yield item
 
+        if ctype.startswith("application/pdf") or response.url.lower().endswith(".pdf"):
+            return
+
         # --- リンク抽出（LinkExtractor に寄せる） ---
         links = self._link_extractor.extract_links(response)
-        for link in links:
-            self.logger.info(f"[DEBUG] extracted link={link.url}, text={link.text}")
 
         for link in links:
             text = _collapse_ws(link.text or "")
             will_follow = self._is_follow_anchor(text)
-            will_download = self._is_download_anchor(text)
-            self.logger.info(f"anchor={text}, follow={will_follow}, download={will_download}")
+            will_download = getattr(self, "_is_download_anchor")(text)
             
             # フォロー条件にマッチしない場合は遷移しない
-            if not getattr(self, "_is_follow_anchor")(text):
+            if not will_follow:
                 continue
-
-            # ダウンロード対象かどうかを別途判定
-            will_download = getattr(self, "_is_download_anchor")(text)
 
             yield Request(
                 url=link.url,

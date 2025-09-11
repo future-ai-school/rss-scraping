@@ -1,6 +1,6 @@
 # 複雑なのでいったん仮
-start_url: "https://www.soumu.go.jp/main_sosiki/joho_tsusin/policyreports/joho_tsusin/yusei/yusei_gyousei/02ryutsu01_04000473.html"
-depth_limit: 1
+start_url: "https://www.soumu.go.jp/main_sosiki/joho_tsusin/policyreports/joho_tsusin/yusei/yusei_gyousei/index.html"
+depth_limit: 2
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
 
 follow_anchor_exact: []
