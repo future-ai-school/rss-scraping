@@ -1,0 +1,12 @@
+# 複雑なのでいったん仮
+start_url: "https://www.soumu.go.jp/main_sosiki/joho_tsusin/policyreports/joho_tsusin/yusei/yusei_gyousei/02ryutsu01_04000473.html"
+depth_limit: 1
+only_internal: true               # 既定 true: start_url のドメイン外は辿らない
+
+follow_anchor_exact: []
+follow_anchor_regex:
+  - ".*議事録.*"
+
+download_anchor_exact:
+  - "議事録"
+download_anchor_regex: []

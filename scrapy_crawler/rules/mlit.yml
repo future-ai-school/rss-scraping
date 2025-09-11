@@ -1,0 +1,23 @@
+start_url: "https://www.mlit.go.jp/policy/shingikai/index.html"
+depth_limit: 3
+only_internal: true               # 既定 true: start_url のドメイン外は辿らない
+#drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
+#allow_url_regex: ["/shingikai/"]
+#deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
+#restrict_xpaths: ["//main", "//*[@id='main']", "//*[@id='contents']"]
+
+follow_anchor_exact:
+  - "国土審議会"
+  - "推進部会"
+  - "社会資本整備審議会"
+  - "過去の開催状況"
+# ここにはすべての部会、委員会のアンカーテキストを記載すること
+follow_anchor_regex:
+  - "議事要旨"
+
+download_anchor_exact: []
+download_anchor_regex:
+  - "議事要旨"
+
+# 国土交通省は議事録pdfがScrapyでは取れないのでやり方を検討する必要あり
+# いったん議事要旨を取得する方針にする

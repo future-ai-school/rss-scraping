@@ -41,7 +41,7 @@ class MinutesSpider(scrapy.Spider):
     - 省庁ごと単一 YAML（絶対パスのみ）を読み込む
     - YAML の start_url / depth_limit を使用（start_url 引数は廃止）
     - ページ個別ルールなし（ドメイン単位のみ）
-    - match_anchor_exact / match_anchor_regex をサポート
+    - follow_anchor_* でページ遷移、download_anchor_* で保存対象を判定
     - 同一ページの #fragments は LinkExtractor の process_value で除外
     - restrict_xpaths / allow_url_regex / deny_paths を YAML 直結
     - 保存アイテムは従来通り（本文含む）
@@ -109,8 +109,10 @@ class MinutesSpider(scrapy.Spider):
         restrict_xpaths = cfg.get("restrict_xpaths") or []
 
         # アンカーマッチ
-        exact_list = cfg.get("match_anchor_exact") or ["議事録"]
-        regex_list = cfg.get("match_anchor_regex") or []
+        follow_exact_list = cfg.get("follow_anchor_exact") or []
+        follow_regex_list = cfg.get("follow_anchor_regex") or []
+        download_exact_list = cfg.get("download_anchor_exact") or []
+        download_regex_list = cfg.get("download_anchor_regex") or []
 
         # LinkExtractor 準備
         def _process_value(url: str):
@@ -137,15 +139,13 @@ class MinutesSpider(scrapy.Spider):
             unique=True,
         )
 
-        # アンカーマッチ関数
-        def _is_anchor_match(text: str) -> bool:
+        # 新しいアンカー判定関数（フォロー／ダウンロード）を設定
+        def _is_follow_anchor(text: str) -> bool:
             t = _collapse_ws(text)
-            # 完全一致
-            for ex in exact_list:
+            for ex in follow_exact_list:
                 if t == ex:
                     return True
-            # 正規表現
-            for rpat in regex_list:
+            for rpat in follow_regex_list:
                 try:
                     if re.search(rpat, t):
                         return True
@@ -153,7 +153,21 @@ class MinutesSpider(scrapy.Spider):
                     spider.logger.warning(f"無効な正規表現をスキップしました: {rpat!r}")
             return False
 
-        spider._is_anchor_match = _is_anchor_match
+        def _is_download_anchor(text: str) -> bool:
+            t = _collapse_ws(text)
+            for ex in download_exact_list:
+                if t == ex:
+                    return True
+            for rpat in download_regex_list:
+                try:
+                    if re.search(rpat, t):
+                        return True
+                except re.error:
+                    spider.logger.warning(f"無効な正規表現をスキップしました: {rpat!r}")
+            return False
+
+        spider._is_follow_anchor = _is_follow_anchor
+        spider._is_download_anchor = _is_download_anchor
         return spider
 
     # --------------------------------------------------------
@@ -206,14 +220,26 @@ class MinutesSpider(scrapy.Spider):
 
         # --- リンク抽出（LinkExtractor に寄せる） ---
         links = self._link_extractor.extract_links(response)
+        for link in links:
+            self.logger.info(f"[DEBUG] extracted link={link.url}, text={link.text}")
 
         for link in links:
             text = _collapse_ws(link.text or "")
-            will_match = self._is_anchor_match(text)
+            will_follow = self._is_follow_anchor(text)
+            will_download = self._is_download_anchor(text)
+            self.logger.info(f"anchor={text}, follow={will_follow}, download={will_download}")
+            
+            # フォロー条件にマッチしない場合は遷移しない
+            if not getattr(self, "_is_follow_anchor")(text):
+                continue
+
+            # ダウンロード対象かどうかを別途判定
+            will_download = getattr(self, "_is_download_anchor")(text)
 
             yield Request(
                 url=link.url,
                 callback=self.parse,
-                meta={"referrer_anchor_text": text, "matched": will_match},
-                dont_filter=will_match,
+                meta={"referrer_anchor_text": text, "matched": will_download},
+                # 従来通り: 通常はフィルタ有効。ダウンロード対象のみフィルタ無効。
+                dont_filter=will_download,
             )

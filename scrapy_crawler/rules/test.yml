@@ -5,5 +5,8 @@ drop_fragments: true              # "#xxx" などの同一ページアンカー�
 allow_url_regex: ["/meeting_crawler/top/"]
 deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
 
-match_anchor_exact: ["議事録"]    # 省略時は ["議事録"] をデフォルト付与
-match_anchor_regex: []            # 柔軟マッチ。ここは残す（必須要件）
+follow_anchor_exact: []
+follow_anchor_regex: [".*"]
+
+download_anchor_exact: ["議事録"]
+download_anchor_regex: []

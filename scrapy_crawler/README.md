@@ -35,8 +35,10 @@ drop_fragments: true
 allow_url_regex: ["/allowed/path/"]
 deny_paths: ["/search", "/print"]
 # restrict_xpaths: ["//main"]
-match_anchor_exact: ["議事録"]
-match_anchor_regex: []
+follow_anchor_exact: ["社会保険部会", "医療部会"]
+follow_anchor_regex: []
+download_anchor_exact: ["議事録", "配布資料"]
+download_anchor_regex: []
 ```
 
 キーの意味:
@@ -45,7 +47,8 @@ match_anchor_regex: []
 - only_internal: 開始 URL と同一ドメインのみ辿る
 - drop_fragments: `#...` 付きの同一ページ内リンクを無視
 - allow_url_regex / deny_paths / restrict_xpaths: LinkExtractor 用のフィルタ
-- match_anchor_exact / match_anchor_regex: アンカーテキストの一致条件
+- follow_anchor_exact / follow_anchor_regex: ページ遷移のアンカーテキスト条件
+- download_anchor_exact / download_anchor_regex: 保存対象（item 化）のアンカーテキスト条件
 
 ## 環境変数（.env）
 
@@ -89,4 +92,3 @@ docker compose run --rm crawler crawl minutes \
 - BFS は `DEPTH_PRIORITY=1` と FIFO キューで実現
 - robots.txt は既定で遵守（`ROBOTSTXT_OBEY=True`）
 - すべての HTTP ステータスを受理して保存判定（`HTTPERROR_ALLOW_ALL`）
-
