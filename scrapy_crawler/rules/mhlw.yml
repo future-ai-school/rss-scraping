@@ -1,19 +1,17 @@
+# 厚生労働省
 start_url: "https://www.mhlw.go.jp/stf/shingi/index.html"
 depth_limit: 2
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
-#drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
-allow_url_regex: ["/stf/"]
+drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
 deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
-#restrict_xpaths: ["//main", "//*[@id='main']", "//*[@id='contents']"]
+restrict_xpaths = ["//div[@class='l-contentMain']"]
 
-follow_anchor_exact:
-  - "社会保障審議会"
-  - "医療保険部会"
-# ここにはすべての部会、委員会のアンカーテキストを記載すること
+follow_anchor_exact: []
 follow_anchor_regex:
-  - "議事録"
+  - ".*ワーキンググループ"
+  - ".*会"
+  - ".*議事録.*"
 
 download_anchor_exact:
   - "議事録"
 download_anchor_regex: []
-

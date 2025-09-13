@@ -1,4 +1,4 @@
-# 複雑なのでいったん仮
+# 総務省
 start_url: "https://www.soumu.go.jp/main_sosiki/joho_tsusin/policyreports/joho_tsusin/yusei/yusei_gyousei/index.html"
 depth_limit: 2
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
