@@ -1,17 +1,22 @@
-# 総務省
-# 総務省はサイト構成が部会/委員会などで統一されていないためルール化が難しい
-# 検討の余地あり
-start_url: "https://www.soumu.go.jp/main_sosiki/joho_tsusin/policyreports/joho_tsusin/yusei/yusei_gyousei/index.html"
-depth_limit: 2
+# 総務省（審議会・委員会・会議等）
+start_url: "https://www.soumu.go.jp/menu_sosiki/singi/index.html"
+depth_limit: 4
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
+drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
+deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
+restrict_xpaths:
+  - "//div[@id='contentsBody']"
+  - "//div[@id='contentsMenu']"
 
 follow_anchor_exact: []
 follow_anchor_regex:
   - ".*議事録.*"
+  - ".*議事要旨.*"
 
-download_anchor_exact:
-  - "議事録"
-download_anchor_regex: []
+download_anchor_exact: []
+download_anchor_regex:
+  - ".*議事録.*"
+  - ".*議事要旨.*"
 
 # Optional LLM fallback for will_follow
 llm_fallback:

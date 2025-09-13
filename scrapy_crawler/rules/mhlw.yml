@@ -4,7 +4,8 @@ depth_limit: 2
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
 drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
 deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
-restrict_xpaths = ["//div[@class='l-contentMain']"]
+restrict_xpaths:
+  - "//div[@class='l-contentMain']"
 
 follow_anchor_exact: []
 follow_anchor_regex:
@@ -12,19 +13,10 @@ follow_anchor_regex:
   - ".*会"
   - ".*議事録.*"
 
-download_anchor_exact:
-  - "議事録"
-download_anchor_regex: []
+download_anchor_exact: []
+download_anchor_regex:
+  - ".*議事録.*"
 
 # Optional LLM fallback for will_follow
 llm_fallback:
-  enabled: true
-  provider: openai
-  model: gpt-4o-mini
-  prompt_template: |
-    あなたは厚生労働省のサイトをクロールしています。
-    以下のリンクが厚生労働省の会議の議事録にアクセスできる可能性があるか判定してください。
-    ページタイトル: "{title}"
-    アンカーテキスト: "{anchor}"
-    URL: {url}
-    出力は Yes または No のみ。
+  enabled: false
