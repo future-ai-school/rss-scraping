@@ -10,6 +10,7 @@ from scrapy.http import Response
 from scrapy.exceptions import CloseSpider
 from scrapy.linkextractors import LinkExtractor, IGNORED_EXTENSIONS
 from scrapy_crawler.items import CrawledPageItem
+from scrapy_crawler.llm import classify_yes_no
 
 
 # ------------------------------------------------------------
@@ -123,6 +124,13 @@ class MinutesSpider(scrapy.Spider):
             deny_extensions=deny_ext,
         )
 
+        # Optional LLM fallback configuration
+        llm_cfg = cfg.get("llm_fallback") or {}
+        spider._llm_enabled = bool(llm_cfg.get("enabled", True)) if llm_cfg else False
+        spider._llm_prompt_template = (llm_cfg.get("prompt_template") or "").strip() if llm_cfg else ""
+        spider._llm_provider = (llm_cfg.get("provider") or "openai") if llm_cfg else "openai"
+        spider._llm_model = (llm_cfg.get("model") or None) if llm_cfg else None
+
         # 新しいアンカー判定関数（フォロー／ダウンロード）を設定
         def _is_follow_anchor(text: str) -> bool:
             t = _collapse_ws(text)
@@ -214,6 +222,14 @@ class MinutesSpider(scrapy.Spider):
             will_download = getattr(self, "_is_download_anchor")(text)
             
             # フォロー条件にマッチしない場合は遷移しない
+            if not will_follow and self._llm_enabled and self._llm_prompt_template:
+                title = _collapse_ws(response.css("title::text").get() or "")
+                prompt = self._llm_prompt_template.format(title=title, anchor=text, url=link.url)
+
+                if classify_yes_no(prompt, provider=self._llm_provider, model=self._llm_model):
+                    self.logger.debug(f"LLM accepted: {link.url} (anchor={text})")
+                    will_follow = True
+
             if not will_follow:
                 continue
 

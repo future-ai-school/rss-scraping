@@ -1,4 +1,6 @@
 # 総務省
+# 総務省はサイト構成が部会/委員会などで統一されていないためルール化が難しい
+# 検討の余地あり
 start_url: "https://www.soumu.go.jp/main_sosiki/joho_tsusin/policyreports/joho_tsusin/yusei/yusei_gyousei/index.html"
 depth_limit: 2
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
@@ -10,3 +12,16 @@ follow_anchor_regex:
 download_anchor_exact:
   - "議事録"
 download_anchor_regex: []
+
+# Optional LLM fallback for will_follow
+llm_fallback:
+  enabled: true
+  provider: openai
+  model: gpt-4o-mini
+  prompt_template: |
+    あなたは総務省のサイトをクロールしています。
+    以下のリンクが総務省の会議の議事録にアクセスできる可能性があるか判定してください。
+    ページタイトル: "{title}"
+    アンカーテキスト: "{anchor}"
+    URL: {url}
+    出力は Yes または No のみ。

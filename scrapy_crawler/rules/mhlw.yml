@@ -15,3 +15,16 @@ follow_anchor_regex:
 download_anchor_exact:
   - "議事録"
 download_anchor_regex: []
+
+# Optional LLM fallback for will_follow
+llm_fallback:
+  enabled: true
+  provider: openai
+  model: gpt-4o-mini
+  prompt_template: |
+    あなたは厚生労働省のサイトをクロールしています。
+    以下のリンクが厚生労働省の会議の議事録にアクセスできる可能性があるか判定してください。
+    ページタイトル: "{title}"
+    アンカーテキスト: "{anchor}"
+    URL: {url}
+    出力は Yes または No のみ。

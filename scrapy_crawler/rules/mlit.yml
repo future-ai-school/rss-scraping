@@ -17,3 +17,16 @@ follow_anchor_regex:
 download_anchor_exact: []
 download_anchor_regex:
   - ".*議事録.*"
+
+# Optional LLM fallback for will_follow
+llm_fallback:
+  enabled: true
+  provider: openai
+  model: gpt-4o-mini
+  prompt_template: |
+    あなたは国土交通省のサイトをクロールしています。
+    以下のリンクが国土交通省の会議の議事録にアクセスできる可能性があるか判定してください。
+    ページタイトル: "{title}"
+    アンカーテキスト: "{anchor}"
+    URL: {url}
+    出力は Yes または No のみ。
