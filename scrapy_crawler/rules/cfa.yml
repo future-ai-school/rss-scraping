@@ -1,0 +1,21 @@
+# こども家庭庁
+# robots.txtあり
+start_url: "https://www.cfa.go.jp/councils"
+depth_limit: 4
+only_internal: true               # 既定 true: start_url のドメイン外は辿らない
+drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
+deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
+restrict_xpaths:
+  - "//div[@id='mainContainer']"
+
+follow_anchor_exact: []
+follow_anchor_regex: []
+
+download_anchor_exact: []
+download_anchor_regex:
+  - ".*議事録.*"
+  - ".*議事要旨.*"
+
+# Optional LLM fallback for will_follow
+llm_fallback:
+  enabled: false
