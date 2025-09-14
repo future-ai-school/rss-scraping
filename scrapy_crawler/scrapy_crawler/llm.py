@@ -16,7 +16,7 @@ def complete_text(
     model: Optional[str] = None,
     api_key: Optional[str] = None,
     timeout: float = 30.0,
-    max_tokens: int = 2048,
+    max_tokens: int = 8192,
 ) -> Optional[str]:
     """Run a prompt and return raw text.
 
