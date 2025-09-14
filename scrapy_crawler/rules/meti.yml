@@ -1,22 +1,22 @@
-# 厚生労働省
+# 経済産業省
 # robots.txtなし
-start_url: "https://www.mhlw.go.jp/stf/shingi/index.html"
-depth_limit: 2
+start_url: "https://www.meti.go.jp/shingikai/index_links.html"
+depth_limit: 3
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
 drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
 deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
 restrict_xpaths:
-  - "//div[@class='l-contentMain']"
+  - "//div[@class='tab']"
+  - "//div[@id='__main_contents']"
 
 follow_anchor_exact: []
-follow_anchor_regex:
-  - ".*ワーキンググループ"
-  - ".*会"
-  - ".*議事録.*"
+follow_anchor_regex: []
 
 download_anchor_exact: []
 download_anchor_regex:
   - ".*議事録.*"
+  - ".*議事要旨.*"
+  - ".*議事概要*"
 
 # Optional LLM fallback for will_follow
 llm_fallback:

@@ -1,4 +1,5 @@
 # 法務省
+# robots.txtなし
 # 現在開催されている審議会の議事録を抽出
 # 過去の審議会情報(https://www.moj.go.jp/shingikaikako_shingikai.html)を取得したい場合ば
 # 上記のページをstartとして別途ルールを定義した方がよさそう
@@ -8,7 +9,7 @@ only_internal: true               # 既定 true: start_url のドメイン外は
 drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
 deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
 restrict_xpaths:
-  - "//div[@id='contents']"
+  - "//div[@id='content']"
 
 follow_anchor_exact:
   - "TXT版"

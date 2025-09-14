@@ -1,11 +1,12 @@
 # 総務省（研究会）
+# robots.txtなし
 start_url: "https://www.soumu.go.jp/menu_sosiki/kenkyu/kenkyu.html"
 depth_limit: 4
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
 drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
 deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
 restrict_xpaths:
-  - "//div[@id='contentsBody']"
+  - "//div[@class='contentsBody']"
 
 follow_anchor_exact: []
 follow_anchor_regex:
@@ -26,8 +27,17 @@ llm_fallback:
   model: gpt-4o-mini
   prompt_template: |
     あなたは総務省のサイトをクロールしています。
-    以下のリンクが総務省の会議の議事録にアクセスできる可能性があるか判定してください。
-    ページタイトル: "{title}"
-    アンカーテキスト: "{anchor}"
-    URL: {url}
-    出力は Yes または No のみ。
+    以下はこのページから抽出されたリンク一覧です。
+    各リンクについて「総務省の会議の議事録（または要旨・概要）にアクセスできる可能性があるか」を判定してください。
+
+    ページタイトル: {title}
+
+    リンク一覧:
+    {links}
+
+    出力は JSON オブジェクトで、キーを URL、値を true/false にしてください。
+        例:
+    {
+      "https://www.soumu.go.jp/example1.html": true,
+      "https://www.soumu.go.jp/example2.html": false
+    }

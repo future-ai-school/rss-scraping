@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import os
 import re
+import json
 import yaml
 from urllib.parse import urlparse
+from itertools import islice
 
 import scrapy
 from scrapy import Request
@@ -10,7 +12,7 @@ from scrapy.http import Response
 from scrapy.exceptions import CloseSpider
 from scrapy.linkextractors import LinkExtractor, IGNORED_EXTENSIONS
 from scrapy_crawler.items import CrawledPageItem
-from scrapy_crawler.llm import classify_yes_no
+from scrapy_crawler.llm import complete_text
 
 
 # ------------------------------------------------------------
@@ -181,6 +183,18 @@ class MinutesSpider(scrapy.Spider):
         )
 
     # --------------------------------------------------------
+    # イテレータを size ごとに分割
+    # --------------------------------------------------------
+    @staticmethod
+    def _chunked(iterable, size):
+        it = iter(iterable)
+        while True:
+            chunk = list(islice(it, size))
+            if not chunk:
+                break
+            yield chunk
+
+    # --------------------------------------------------------
     # メインループ
     # --------------------------------------------------------
     def parse(self, response: Response, **kwargs):
@@ -210,25 +224,51 @@ class MinutesSpider(scrapy.Spider):
             item["depth"] = response.meta.get("depth", 0)
             yield item
 
-        if ctype.startswith("application/pdf") or response.url.lower().endswith(".pdf"):
+        # Content-Type を先に判定し、PDF は以降のリンク処理をスキップ
+        ctype_header = (response.headers.get(b"Content-Type") or b"").decode("latin-1")
+        ctype_header = ctype_header.split(";")[0].strip().lower() if ctype_header else ""
+        if ctype_header.startswith("application/pdf") or response.url.lower().endswith(".pdf"):
             return
 
         # --- リンク抽出（LinkExtractor に寄せる） ---
         links = self._link_extractor.extract_links(response)
 
+        # --- LLM による一括判定（任意） ---
+        llm_dict = {}
+        if self._llm_enabled and self._llm_prompt_template and links:
+            title = _collapse_ws(response.css("title::text").get() or "")
+
+            for chunk in _chunked(links, 50):
+                links_text = "\n".join(
+                    f"- anchor={_collapse_ws(link.text or '')}, url={link.url}" for link in chunk
+                )
+                prompt = self._llm_prompt_template.format(title=title, links=links_text)
+
+                try:
+                    llm_result = complete_text(
+                        prompt,
+                        provider=self._llm_provider,
+                        model=self._llm_model,
+                    )
+                    if llm_result:
+                        try:
+                            part = json.loads(llm_result)
+                            if isinstance(part, dict):
+                                llm_dict.update(part)
+                        except json.JSONDecodeError as e:
+                            self.logger.warning(f"LLM応答のJSONパースに失敗しました（チャンク無視）: {e}")
+                except Exception as e:
+                    self.logger.warning(f"LLM一括判定に失敗しました（チャンク無視）: {e}")
+
         for link in links:
             text = _collapse_ws(link.text or "")
             will_follow = self._is_follow_anchor(text)
-            will_download = getattr(self, "_is_download_anchor")(text)
-            
-            # フォロー条件にマッチしない場合は遷移しない
-            if not will_follow and self._llm_enabled and self._llm_prompt_template:
-                title = _collapse_ws(response.css("title::text").get() or "")
-                prompt = self._llm_prompt_template.format(title=title, anchor=text, url=link.url)
 
-                if classify_yes_no(prompt, provider=self._llm_provider, model=self._llm_model):
-                    self.logger.debug(f"LLM accepted: {link.url} (anchor={text})")
-                    will_follow = True
+            # ルールにマッチしない場合は LLM の一括結果を参照
+            if not will_follow:
+                will_follow = bool(llm_dict.get(link.url, False))
+
+            will_download = getattr(self, "_is_download_anchor")(text)
 
             if not will_follow:
                 continue

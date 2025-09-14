@@ -1,4 +1,5 @@
 # 国土交通省
+# robots.txtなし
 start_url: "https://www.mlit.go.jp/policy/shingikai/index.html"
 depth_limit: 3
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
