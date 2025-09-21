@@ -1,0 +1,20 @@
+# 金融庁
+# robots.txtなし
+start_url: "https://www.fsa.go.jp/singi/index.html"
+depth_limit: 3
+only_internal: true               # 既定 true: start_url のドメイン外は辿らない
+drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
+deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
+restrict_xpaths:
+  - "//div[@id='main']"
+
+follow_anchor_exact: []
+follow_anchor_regex: []
+
+download_anchor_exact:
+  - "議事録"
+download_anchor_regex: []
+
+# Optional LLM fallback for will_follow
+llm_fallback:
+  enabled: false
