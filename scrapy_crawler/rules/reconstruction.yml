@@ -1,0 +1,22 @@
+# 復興庁 会議資料・議事録収集
+# robots.txtあり
+start_url: "https://www.reconstruction.go.jp/"
+depth_limit: 4
+only_internal: true
+drop_fragments: true
+deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
+restrict_xpaths:
+  - "//div[@id='main']"
+  - "//div[contains(@class,'main')]"
+  - "//div[@id='contents']"
+download_anchor_exact:
+  - "議事録"
+  - "議事要旨"
+  - "資料"
+download_anchor_regex:
+  - ".*議事録.*"
+  - ".*議事要旨.*"
+  - ".*会議資料.*"
+  - ".*配布資料.*"
+  - ".*報告書.*"
+  - ".*基本方針.*"

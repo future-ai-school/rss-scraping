@@ -1,0 +1,25 @@
+# 財務省 会議資料・議事録収集
+# robots.txtなし
+start_url: "https://www.mof.go.jp/about_mof/councils/"
+depth_limit: 4
+only_internal: true
+drop_fragments: true
+deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed", "/english"]
+restrict_xpaths:
+  - "//div[@id='main']"
+  - "//div[contains(@class,'contents')]"
+  - "//main"
+download_anchor_exact:
+  - "議事録"
+  - "議事要旨"
+  - "資料"
+  - "答申"
+  - "建議"
+download_anchor_regex:
+  - ".*議事録.*"
+  - ".*議事要旨.*"
+  - ".*会議資料.*"
+  - ".*配布資料.*"
+  - ".*報告書.*"
+  - ".*答申.*"
+  - ".*建議.*"
