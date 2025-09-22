@@ -1,7 +1,7 @@
 # 消費者庁
 # robots.txtなし
 start_url: "https://www.caa.go.jp/policies/council/"
-depth_limit: 3
+depth_limit: 4
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
 drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
 deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]

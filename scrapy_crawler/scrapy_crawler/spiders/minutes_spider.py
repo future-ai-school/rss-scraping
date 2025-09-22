@@ -136,6 +136,8 @@ class MinutesSpider(scrapy.Spider):
         # 新しいアンカー判定関数（フォロー／ダウンロード）を設定
         def _is_follow_anchor(text: str) -> bool:
             t = _collapse_ws(text)
+            if not follow_exact_list and not follow_regex_list:
+                return True
             for ex in follow_exact_list:
                 if t == ex:
                     return True
@@ -200,6 +202,8 @@ class MinutesSpider(scrapy.Spider):
     def parse(self, response: Response, **kwargs):
         matched = bool(response.meta.get("matched", False))
         ref_anchor = response.meta.get("referrer_anchor_text")
+        depth = response.meta.get("depth", 0)
+        self.logger.info(f"Parse URL={response.url} depth={depth} matched={matched} ref={ref_anchor}")
 
         # --- 保存（matched=True のときのみ） ---
         if matched:
