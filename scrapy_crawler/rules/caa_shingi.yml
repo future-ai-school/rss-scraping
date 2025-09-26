@@ -1,15 +1,23 @@
-# 消費者庁
+# 消費者庁(審議会)
 # robots.txtなし
-start_url: "https://www.caa.go.jp/policies/council/"
+start_url: "https://www.caa.go.jp/policies/council"
 depth_limit: 4
 only_internal: true               # 既定 true: start_url のドメイン外は辿らない
 drop_fragments: true              # "#xxx" などの同一ページアンカーは除外
 deny_paths: ["/search", "/calendar", "/print", "/wp-json", "/feed"]
 restrict_xpaths:
   - "//div[@id='main']"
+  - "//div[@id='contents_inner']"
 
 follow_anchor_exact: []
-follow_anchor_regex: []
+follow_anchor_regex:
+  - ".*議事録.*"
+  - ".*会議・研究会等.*"
+  - ".*会議資料/議事要旨.*"
+  - ".*会議資料・議事録.*"
+  - ".*食品衛生基準.*"
+  - ".*新開発食品.*"
+  - ".*消費者安全調査.*"
 
 download_anchor_exact: []
 download_anchor_regex:
